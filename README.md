@@ -68,19 +68,6 @@ Open:
 - `http://127.0.0.1:8000/dashboard`
 - `http://127.0.0.1:8000/docs`
 
-## Switching to PostgreSQL
-```powershell
-set DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DBNAME
-python seed_data.py
-uvicorn app:app --reload --port 8000
-```
-Set the same `DATABASE_URL` in your cloud provider (e.g., Vercel Project Settings → Environment Variables).
-
-## Deployment (Vercel)
-1. Ensure repo is on GitHub (see below).
-2. In Vercel, create a new Python project from the repo.
-3. Set `DATABASE_URL` env var (PostgreSQL recommended).
-4. Deploy; Vercel detects `api/index.py` and serves the FastAPI app.
 
 ## GitHub Push
 ```powershell
