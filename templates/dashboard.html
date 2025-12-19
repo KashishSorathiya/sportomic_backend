@@ -1,0 +1,102 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sportomic Dashboard</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body{font-family:system-ui,Segoe UI,Arial;margin:20px;background:#fafafa;color:#1a1a1a}
+    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    .card{border:1px solid #dfe6e9;border-radius:8px;padding:12px;background:#fff}
+    .filters{display:flex;gap:10px;align-items:center;margin-bottom:12px}
+    select,input{padding:6px 8px}
+    .title{font-weight:600;margin-bottom:6px}
+    #chartWrap{margin-top:14px}
+  </style>
+</head>
+<body>
+  <div class="filters">
+    <select id="venue"></select>
+    <select id="sport"></select>
+    <input id="month" type="month" />
+    <button id="refresh">Apply</button>
+  </div>
+
+  <div class="grid" id="metrics">
+    <div class="card"><div class="title">Active Members</div><div id="m_active">-</div></div>
+    <div class="card"><div class="title">Inactive Members</div><div id="m_inactive">-</div></div>
+    <div class="card"><div class="title">Trial Conversion Rate</div><div id="m_tcr">-</div></div>
+    <div class="card"><div class="title">Coaching Revenue</div><div id="m_coach">-</div></div>
+    <div class="card"><div class="title">Bookings</div><div id="m_bookings">-</div></div>
+    <div class="card"><div class="title">Booking Revenue</div><div id="m_brev">-</div></div>
+    <div class="card"><div class="title">Slots Utilization</div><div id="m_slots">-</div></div>
+    <div class="card"><div class="title">Coupon Redemption</div><div id="m_coupon">-</div></div>
+    <div class="card"><div class="title">Repeat Booking</div><div id="m_repeat">-</div></div>
+    <div class="card"><div class="title">Total Revenue</div><div id="m_total">-</div></div>
+    <div class="card"><div class="title">Refunds & Disputes</div><div id="m_refund">-</div></div>
+  </div>
+
+  <div id="chartWrap" class="card">
+    <div class="title">Revenue - Venues</div>
+    <canvas id="chart" height="120"></canvas>
+  </div>
+
+  <script>
+    const vSel = document.getElementById('venue');
+    const sSel = document.getElementById('sport');
+    const mSel = document.getElementById('month');
+    const btn = document.getElementById('refresh');
+    let chart;
+
+    async function initFilters(){
+      const v = await (await fetch('/venues')).json();
+      vSel.innerHTML = '<option value="">All Venues</option>' + v.map(x=>`<option value="${x.id}">${x.name}</option>`).join('');
+      const s = await (await fetch('/sports')).json();
+      sSel.innerHTML = '<option value="">All Sports</option>' + s.map(x=>`<option value="${x}">${x}</option>`).join('');
+    }
+
+    function bounds(){
+      const m = mSel.value;
+      if(!m) return {};
+      const [y,mm] = m.split('-');
+      const start = `${y}-${mm}-01`;
+      const endDate = new Date(parseInt(y), parseInt(mm), 0).getDate();
+      const end = `${y}-${mm}-${String(endDate).padStart(2,'0')}`;
+      return {start_date:start, end_date:end};
+    }
+
+    async function loadMetrics(){
+      const q = new URLSearchParams(bounds());
+      const vid = vSel.value; const sid = sSel.value;
+      if(vid) q.set('venue_id', vid);
+      if(sid) q.set('sport_id', sid);
+      const gm = await (await fetch('/metrics/general?'+q.toString())).json();
+      document.getElementById('m_active').textContent = gm.active_members;
+      document.getElementById('m_inactive').textContent = gm.inactive_members;
+      document.getElementById('m_tcr').textContent = gm.trial_conversion_rate_pct.toFixed(2)+"%";
+      document.getElementById('m_coach').textContent = `₹${gm.coaching_revenue.toFixed(2)}`;
+      document.getElementById('m_bookings').textContent = gm.bookings;
+      document.getElementById('m_brev').textContent = `₹${gm.booking_revenue.toFixed(2)}`;
+      document.getElementById('m_slots').textContent = gm.slots_utilization_pct.toFixed(2)+"%";
+      document.getElementById('m_coupon').textContent = gm.coupon_redemption;
+      document.getElementById('m_repeat').textContent = gm.repeat_booking_pct.toFixed(2)+"%";
+      document.getElementById('m_total').textContent = `₹${gm.total_revenue.toFixed(2)}`;
+      document.getElementById('m_refund').textContent = `${gm.refunds_disputes_count} | ₹${gm.refunds_disputes_amount.toFixed(2)}`;
+
+      const ts = await (await fetch('/metrics/revenue_timeseries?'+q.toString())).json();
+      const labels = ts.map(x=>x.date);
+      const data = ts.map(x=>x.revenue);
+      if(chart) chart.destroy();
+      chart = new Chart(document.getElementById('chart'), {
+        type: 'line', data: { labels, datasets: [{ label: 'Revenue', data, fill: true, borderColor:'#1abc9c', backgroundColor:'rgba(26,188,156,0.15)'}] },
+        options: { scales: { y: { beginAtZero: true } } }
+      });
+    }
+
+    btn.addEventListener('click', loadMetrics);
+    initFilters().then(loadMetrics);
+  </script>
+</body>
+</html>
